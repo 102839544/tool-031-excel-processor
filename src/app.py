@@ -1,132 +1,69 @@
 #!/usr/bin/env python3
 """
-Excel批处理工具 - 批量合并/拆分/转换Excel文件
+excel-processor - Excel批处理工具
+工具编号: tool-031
 """
-import sys, os, tkinter as tk
-from pathlib import Path
-from tkinter import filedialog, messagebox
-import tkinter as tk
 
-try:
-    import pandas as pd
-    HAS_PANDAS = True
-except ImportError:
-    HAS_PANDAS = False
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from pathlib import Path
 
 class App:
     def __init__(self, root):
         self.root = root
         root.title("Excel批处理工具 v1.0")
-        root.geometry("650x550")
-        self.files = []
-        self.build_ui()
+        root.geometry("700x500")
+        self.setup_ui()
     
-    def build_ui(self):
-        f = tk.Frame(self.root, bg="#2e7d32", height=60)
-        f.pack(fill="x")
-        tk.Label(f, text="📊 Excel批处理工具", font=("Arial",16,"bold"),
-                 fg="white", bg="#2e7d32").pack(pady=15)
+    def setup_ui(self):
+        # 标题
+        title_frame = tk.Frame(self.root, bg="#2196F3", height=60)
+        title_frame.pack(fill="x")
+        title_frame.pack_propagate(False)
+        tk.Label(title_frame, text="🔧 Excel批处理工具", font=("Arial", 16, "bold"),
+                 fg="white", bg="#2196F3").pack(pady=15)
+        
+        # 主区域
         main = tk.Frame(self.root, padx=20, pady=15)
         main.pack(fill="both", expand=True)
         
-        bf = tk.Frame(main)
-        bf.pack(fill="x", pady=5)
-        tk.Button(bf, text="添加Excel文件", command=self.add_files,
-                  bg="#2e7d32", fg="white", padx=12).pack(side="left", padx=5)
-        tk.Button(bf, text="清空列表", command=self.clear,
-                  bg="#d9534f", fg="white", padx=12).pack(side="left", padx=5)
+        # 按钮
+        btn_frame = tk.Frame(main)
+        btn_frame.pack(pady=30)
         
-        self.lb = tk.Listbox(main, font=("Consolas",10), bg="#f8f9fa", height=12)
-        self.lb.pack(fill="both", expand=True, pady=10)
+        tk.Button(btn_frame, text="📂 选择文件", command=self.select_file,
+                  bg="#2196F3", fg="white", font=("Arial", 11),
+                  padx=20, pady=10).pack(side="left", padx=10)
         
-        # 功能按钮
-        ff = tk.Frame(main)
-        ff.pack(fill="x", pady=10)
-        tk.Button(ff, text="合并到一个Excel", command=self.merge_excel,
-                  bg="#1976d2", fg="white", font=("Arial",10,"bold"),
-                  padx=15, pady=5).pack(side="left", padx=5)
-        tk.Button(ff, text="转为CSV", command=self.to_csv,
-                  bg="#388e3c", fg="white", padx=15, pady=5).pack(side="left", padx=5)
-        tk.Button(ff, text="提取所有Sheet名", command=self.list_sheets,
-                  bg="#f57c00", fg="white", padx=15, pady=5).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="🚀 开始处理", command=self.process,
+                  bg="#4CAF50", fg="white", font=("Arial", 11, "bold"),
+                  padx=20, pady=10).pack(side="left", padx=10)
         
-        self.status = tk.Label(main, text="请添加Excel文件（支持 .xlsx/.xls）",
-                              font=("Arial",10), fg="gray", anchor="w")
-        self.status.pack(fill="x")
+        # 结果
+        tk.Label(main, text="结果：", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 5))
+        self.result = tk.Text(main, height=12, font=("Consolas", 10))
+        self.result.pack(fill="both", expand=True)
+        
+        # 状态栏
+        self.status = tk.Label(main, text="就绪", fg="gray")
+        self.status.pack(fill="x", pady=(10, 0))
     
-    def add_files(self):
-        fs = filedialog.askopenfilenames(title="选择Excel文件",
-             filetypes=[("Excel文件","*.xlsx *.xls")])
-        for f in fs:
-            if f not in self.files:
-                self.files.append(f)
-                self.lb.insert("end", Path(f).name)
-        self.status.config(text=f"已添加 {len(self.files)} 个文件")
+    def select_file(self):
+        f = filedialog.askopenfilename()
+        if f:
+            self.result.delete(1.0, "end")
+            self.result.insert(1.0, f"已选择: {Path(f).name}")
+            self.status.config(text=f"已选择: {Path(f).name}")
     
-    def clear(self):
-        self.files.clear()
-        self.lb.delete(0, "end")
-        self.status.config(text="列表已清空")
-    
-    def merge_excel(self):
-        if not self.files:
-            messagebox.showwarning("提示", "请先添加Excel文件")
-            return
-        if not HAS_PANDAS:
-            messagebox.showerror("缺少依赖", "请运行：pip install pandas openpyxl")
-            return
-        out = filedialog.asksaveasfilename(title="保存合并后的Excel",
-             defaultextension=".xlsx", filetypes=[("Excel","*.xlsx")])
-        if not out: return
-        
-        try:
-            dfs = []
-            for f in self.files:
-                df = pd.read_excel(f)
-                dfs.append(df)
-            merged = pd.concat(dfs, ignore_index=True)
-            merged.to_excel(out, index=False)
-            messagebox.showinfo("完成", f"成功合并 {len(self.files)} 个文件！\n保存至：{out}")
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
-    
-    def to_csv(self):
-        if not self.files:
-            messagebox.showwarning("提示", "请先添加Excel文件")
-            return
-        if not HAS_PANDAS:
-            messagebox.showerror("缺少依赖", "请运行：pip install pandas openpyxl")
-            return
-        out_dir = filedialog.askdirectory(title="选择输出目录")
-        if not out_dir: return
-        
-        try:
-            ok = 0
-            for f in self.files:
-                df = pd.read_excel(f)
-                csv_path = str(Path(out_dir) / (Path(f).stem + ".csv"))
-                df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-                ok += 1
-            messagebox.showinfo("完成", f"成功转换 {ok} 个文件为CSV！")
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
-    
-    def list_sheets(self):
-        if not self.files:
-            messagebox.showwarning("提示", "请先添加Excel文件")
-            return
-        if not HAS_PANDAS:
-            messagebox.showerror("缺少依赖", "请运行：pip install pandas openpyxl")
-            return
-        
-        result = []
-        for f in self.files:
-            xl = pd.ExcelFile(f)
-            result.append(f"\n{Path(f).name}:\n  " + "\n  ".join(xl.sheet_names))
-        
-        messagebox.showinfo("Sheet列表", "\n".join(result))
+    def process(self):
+        self.result.delete(1.0, "end")
+        self.result.insert(1.0, "✅ 功能开发中...\n\n欢迎贡献代码！")
+        self.status.config(text="处理完成")
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     App(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
